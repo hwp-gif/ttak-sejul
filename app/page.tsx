@@ -16,9 +16,27 @@ import {
   type SummarizeResponse,
   type Todo,
 } from "@/lib/summary";
+import type { MeetingLog } from "@/lib/db";
 
 const DUE_CHOICES = ["오늘", "내일", "이번 주", "다음 주"];
 const DRAFT_KEY = "ttak-sejul:draft";
+const CLIENT_KEY = "ttak-sejul:client";
+
+// 이 브라우저의 무작위 번호: 내 기록만 불러오는 데 쓴다 (로그인 대신, 추측할 수 없는 UUID)
+function getClientId(): string | null {
+  try {
+    let id = localStorage.getItem(CLIENT_KEY);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(CLIENT_KEY, id);
+    }
+    return id;
+  } catch {
+    return null; // 저장소를 못 쓰는 브라우저(사생활 보호 모드 등)는 기록 없이 사용
+  }
+}
+
+const formatDate = (d: Date) => `${d.getMonth() + 1}월 ${d.getDate()}일 (${"일월화수목금토"[d.getDay()]})`;
 const COACH_KEY = "ttak-sejul:coach-seen";
 
 // (?) 도움말: 처음 쓰는 사람이 막히는 그 자리에서 바로 설명
@@ -55,7 +73,7 @@ const WAIT_LINES = ["할 일 줍는 중…", "누가 뭘 하기로 했더라…"
 const TIRED_MINUTES = 30;
 type HelpKey = keyof typeof HELP;
 
-type Result = SummarizeResponse & { memo: string; minutes: number; date: string };
+type Result = SummarizeResponse & { memo: string; minutes: number; date: string; fromLog?: boolean };
 
 // 미정 바로 채우기: 메모에 나온 이름(또는 기한 보기)을 버튼으로 고르거나 직접 입력
 function Picker({ choices, placeholder, onPick, onClose }: {
@@ -117,6 +135,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [recent, setRecent] = useState<MeetingLog[]>([]);
   const [copied, setCopied] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [restored, setRestored] = useState(false);
@@ -160,6 +179,19 @@ export default function Home() {
     setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), stage === "meeting" ? 1000 : 30_000);
     return () => clearInterval(timer);
+  }, [stage]);
+
+  // F4: 첫 화면에 올 때마다 이 브라우저의 최근 회의를 불러온다 (실패하면 목록만 안 보임)
+  useEffect(() => {
+    if (stage !== "home") return;
+    const client = getClientId();
+    if (!client) return;
+    let cancelled = false;
+    fetch(`/api/logs?client=${client}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled && Array.isArray(data?.logs)) setRecent(data.logs); })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [stage]);
 
   // 회의 중에는 화면이 꺼지지 않게 (지원하는 폰·브라우저만)
@@ -279,26 +311,50 @@ export default function Home() {
       const res = await fetch("/api/summarize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, memo, lang }),
+        body: JSON.stringify({
+          title, memo, lang,
+          clientId: getClientId(),
+          minutes: startedAt ? (Date.now() - startedAt) / 60_000 : 0,
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data) {
         setError(data?.error ?? "정리하지 못했어요. 다시 시도해 주세요.");
         return;
       }
-      const d = new Date();
       setDoneTodos(new Set());
       setResult({
         ...(data as SummarizeResponse),
         memo,
         minutes: startedAt ? Math.round((Date.now() - startedAt) / 60_000) : 0,
-        date: `${d.getMonth() + 1}월 ${d.getDate()}일 (${"일월화수목금토"[d.getDay()]})`,
+        date: formatDate(new Date()),
       });
     } catch {
       setError("서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.");
     } finally {
       setLoading(false);
     }
+  }
+
+  // 최근 회의를 누르면 저장된 결과를 다시 연다
+  function openLog(log: MeetingLog) {
+    setDoneTodos(new Set());
+    setPicking(null);
+    setCopied("");
+    setResult({
+      title: log.title,
+      summary: log.summary,
+      decisions: log.decisions,
+      todos: log.todos,
+      open_questions: log.open_questions,
+      people: log.people,
+      lang: log.lang,
+      model: log.model,
+      memo: log.original,
+      minutes: log.minutes,
+      date: formatDate(new Date(log.createdAt)),
+      fromLog: true,
+    });
   }
 
   function fillTodo(index: number, field: "owner" | "due", value: string) {
@@ -377,6 +433,26 @@ export default function Home() {
             예시 회의로 둘러보기 →
           </button>
         </form>
+
+        {recent.length > 0 && (
+          <section className="recent" aria-labelledby="recent-title">
+            <h2 id="recent-title">최근 회의</h2>
+            <ul>
+              {recent.map((log) => (
+                <li key={log.id}>
+                  <button type="button" className="recent-item" onClick={() => openLog(log)}>
+                    <span className="recent-top">
+                      <span className="recent-name">{log.title}</span>
+                      <span className="recent-date">{formatDate(new Date(log.createdAt))}</span>
+                    </span>
+                    <span className="recent-sub">{log.summary[0]}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <p className="hint">이 브라우저에서 정리한 회의만 보여요</p>
+          </section>
+        )}
 
         <ol className="how">
           <li><b>1</b><span>회의 시작을 누르고</span></li>
@@ -517,7 +593,11 @@ export default function Home() {
   return (
     <main className="shell result iris" aria-live="polite">
       <header className="topbar">
-        <button type="button" className="icon-btn text" onClick={() => setResult(null)}>← 메모 고치기</button>
+        {r.fromLog ? (
+          <button type="button" className="icon-btn text" onClick={newMeeting}>← 처음으로</button>
+        ) : (
+          <button type="button" className="icon-btn text" onClick={() => setResult(null)}>← 메모 고치기</button>
+        )}
         <Wordmark />
       </header>
 
@@ -659,7 +739,10 @@ export default function Home() {
       <button type="button" className="btn-soft wide" onClick={newMeeting}>
         <span className="rec-dot" aria-hidden /> 새 회의 시작
       </button>
-      <p className="model">답한 모델: {r.model}</p>
+      <p className="model">
+        {!r.fromLog && (r.saved ? "💾 이 브라우저의 최근 회의에 저장했어요 · " : "기록 저장은 못 했어요 (정리 결과는 그대로예요) · ")}
+        답한 모델: {r.model}
+      </p>
       {helpSheet}
     </main>
   );

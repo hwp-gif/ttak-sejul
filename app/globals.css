@@ -442,3 +442,21 @@ button.fill { padding: 3px 10px; min-height: 30px; font-size: 13px; color: var(-
 @media (prefers-reduced-motion: reduce) {
   .kim-body, .kim-steam, .kim-wave-arm, .iris, .stamp, .kim-dialog, .help-backdrop, .todo-head input:checked { animation: none !important; }
 }
+
+/* ───── 첫 화면: 최근 회의 (F4) ───── */
+.recent { margin-top: 28px; }
+.recent h2 { margin: 0 0 10px; padding: 0 4px; font-family: var(--serif); font-size: 18px; }
+.recent ul { margin: 0 0 8px; padding: 0; list-style: none; display: grid; gap: 8px; }
+.recent-item {
+  display: grid; gap: 2px; width: 100%; padding: 12px 16px; text-align: left;
+  background: var(--paper); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 14px;
+  transition: border-color .15s ease, transform .08s ease;
+}
+.recent-item:hover { border-color: var(--green); }
+.recent-item:active { transform: scale(.99); }
+.recent-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.recent-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-date { flex: none; font-size: 13px; color: var(--faint); }
+.recent-sub { font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent .hint { padding: 0 4px; }

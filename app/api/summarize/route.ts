@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { errorCode, isClientId, saveMeeting } from "@/lib/db";
 import {
   LANGS,
   MAX_LENGTH,
@@ -211,7 +212,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "JSON 형식으로 보내 주세요." }, { status: 400 });
   }
 
-  const { title, memo, lang } = (body ?? {}) as { title?: unknown; memo?: unknown; lang?: unknown };
+  const { title, memo, lang, clientId, minutes } = (body ?? {}) as {
+    title?: unknown; memo?: unknown; lang?: unknown; clientId?: unknown; minutes?: unknown;
+  };
   const cleanLang: Lang = isLang(lang) ? lang : "ko";
   const cleanMemo = typeof memo === "string" ? memo.trim() : "";
   const cleanTitle = typeof title === "string" ? title.trim().slice(0, 100) : "";
@@ -233,9 +236,20 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await summarize(apiKey, cleanTitle, cleanMemo, cleanLang);
-    // TODO(F4): DB 저장 — 다음 단계
-    return NextResponse.json(result satisfies SummarizeResponse);
+    const result: SummarizeResponse = await summarize(apiKey, cleanTitle, cleanMemo, cleanLang);
+
+    // F4: 기록 저장. 실패해도 정리 결과는 그대로 돌려준다 (saved: false).
+    let saved = false;
+    if (isClientId(clientId)) {
+      const cleanMinutes = typeof minutes === "number" && Number.isFinite(minutes) ? Math.min(Math.max(Math.round(minutes), 0), 24 * 60) : 0;
+      try {
+        await saveMeeting(clientId, cleanMemo, cleanMinutes, result);
+        saved = true;
+      } catch (e) {
+        console.error(`[summarize] 기록 저장 실패 (코드: ${errorCode(e)})`);
+      }
+    }
+    return NextResponse.json({ ...result, saved } satisfies SummarizeResponse);
   } catch (e) {
     if (e instanceof SummarizeError) {
       return NextResponse.json({ error: e.message }, { status: e.status });

@@ -111,12 +111,14 @@
 | todos | JSONB | 할 일 목록 (근거 포함) |
 | open_questions | JSONB | 남은 질문 |
 | model | TEXT | 답한 모델 |
+| client_id | TEXT | 브라우저별 무작위 번호 (UUID) — 내 기록만 불러오기용 |
+| people · lang · minutes | JSONB · TEXT · INT | 담당자 후보 이름 · 결과 언어 · 회의 시간(분) |
 | created_at | TIMESTAMPTZ | 기본값 now() |
 - **RLS 켜기** (Supabase 보안 경고 없애기)
 
 ### API
 - `POST /api/summarize` : 메모 받기 → AI 정리 → DB 저장 → 결과 + `saved` 반환
-- `GET /api/logs` : 최근 5개
+- `GET /api/logs?client=<브라우저 번호>` : **이 브라우저가 저장한** 최근 5개 (11-21 변경: 모두의 최근 5개를 보여 주면 배포 후 남의 회의록이 보이므로, 브라우저마다 무작위 UUID를 붙여 저장·조회)
 
 ### 환경 변수 (`.env`, GitHub에 올리지 않음)
 - `OPENROUTER_API_KEY`
