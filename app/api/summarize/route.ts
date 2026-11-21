@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { errorCode, isClientId, saveMeeting } from "@/lib/db";
+import { RATE_MESSAGES, rateLimit } from "@/lib/ratelimit";
 import {
   LANGS,
   MAX_LENGTH,
@@ -15,6 +16,11 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 // 빠른 모델부터 차례로 시도한다. 실패(시간 초과·혼잡·형식 오류)하면 다음 모델로 넘어간다.
 // 2026-11-21 측정: super-vl(생각 끄기) 1~7초 · ernie 5~30초 · openrouter/free(무작위) 13~58초
 type ModelPlan = { model: string; reasoningOff?: boolean; timeoutMs: number };
+
+// Netlify 함수는 60초가 지나면 강제로 끊긴다(늘릴 수 없음). AI 시도 전체를 48초 안에 끝내고,
+// 남은 시간은 저장 · 횟수 기록 · 서버 준비 시간으로 남겨 둔다.
+const TOTAL_BUDGET_MS = 48_000;
+const MIN_TRY_MS = 6_000; // 남은 시간이 이보다 적으면 새 모델을 부르지 않는다
 const MODEL_PLAN: ModelPlan[] = [
   { model: "nvidia/nemotron-3.5-super-vl:free", reasoningOff: true, timeoutMs: 15_000 },
   { model: "baidu/ernie-5.5-flash-preview:free", timeoutMs: 30_000 },
@@ -163,6 +169,12 @@ function userMessage(memo: string, lang: Lang) {
 }
 
 async function summarize(apiKey: string, title: string, memo: string, lang: Lang): Promise<SummarizeResponse> {
+  const deadline = Date.now() + TOTAL_BUDGET_MS;
+  // 남은 시간 안에서만 기다리도록 시간 제한을 줄인다. 시간이 모자라면 null
+  const withinBudget = (plan: ModelPlan): ModelPlan | null => {
+    const left = deadline - Date.now();
+    return left < MIN_TRY_MS ? null : { ...plan, timeoutMs: Math.min(plan.timeoutMs, left - 500) };
+  };
   const messages: Message[] = [
     { role: "system", content: buildPrompt(lang) },
     { role: "user", content: userMessage(memo, lang) },
@@ -172,7 +184,13 @@ async function summarize(apiKey: string, title: string, memo: string, lang: Lang
   const plans = lang === "ja" ? MODEL_PLAN.slice(1) : MODEL_PLAN;
 
   let lastError: SummarizeError | null = null;
-  for (const plan of plans) {
+  for (const fullPlan of plans) {
+    const plan = withinBudget(fullPlan);
+    if (!plan) {
+      console.error(`[summarize] 시간 예산을 다 써서 멈춤 (남은 모델: ${fullPlan.model})`);
+      lastError = new SummarizeError("무료 AI가 붐벼서 시간 안에 정리하지 못했어요. 잠시 후 다시 시도해 주세요.", 504);
+      break;
+    }
     try {
       const first = await callOpenRouter(apiKey, plan, messages);
       let parsed = parseResult(first.content, memo, lang);
@@ -180,7 +198,9 @@ async function summarize(apiKey: string, title: string, memo: string, lang: Lang
       if (!parsed) {
         // 형식이 틀리면 같은 모델에 한 번만 다시 요청한다.
         console.error(`[summarize] 형식 오류, 다시 요청 (모델: ${model})`);
-        const second = await callOpenRouter(apiKey, plan, [
+        const retryPlan = withinBudget(plan);
+        if (!retryPlan) throw new SummarizeError("무료 AI가 붐벼서 시간 안에 정리하지 못했어요. 잠시 후 다시 시도해 주세요.", 504);
+        const second = await callOpenRouter(apiKey, retryPlan, [
           ...messages,
           { role: "assistant", content: first.content },
           { role: "user", content: RETRY_PROMPT },
@@ -233,6 +253,12 @@ export async function POST(request: Request) {
   if (!apiKey) {
     console.error("[summarize] OPENROUTER_API_KEY가 설정되지 않음");
     return NextResponse.json({ error: "서버에 API 키가 설정되지 않았어요. 관리자에게 알려 주세요." }, { status: 500 });
+  }
+
+  // 팀 키 보호: 사용 횟수 제한 (빈 메모 · 너무 긴 메모처럼 AI를 안 부르는 요청은 세지 않음)
+  const rate = await rateLimit(request);
+  if (!rate.ok) {
+    return NextResponse.json({ error: RATE_MESSAGES[rate.reason] }, { status: 429 });
   }
 
   try {

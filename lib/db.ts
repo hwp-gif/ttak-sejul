@@ -118,3 +118,49 @@ export async function recentMeetings(clientId: string, limit = 5): Promise<Meeti
     createdAt: new Date(r.created_at).toISOString(),
   }));
 }
+
+// ───── 사용 횟수 제한 (팀 OpenRouter 키 보호) ─────
+// 서버가 여러 대로 나뉘어 떠도 정확히 세도록 DB에 기록한다. IP는 그대로 저장하지 않고 해시로만 저장.
+export const LIMITS = { perMinute: 5, perDay: 30, sitePerDay: 300 } as const;
+export type RateResult = { ok: true } | { ok: false; reason: "minute" | "day" | "site" };
+
+let hitsReady: Promise<void> | null = null;
+function ensureHitsTable(): Promise<void> {
+  hitsReady ??= getPool()
+    .query(
+      `CREATE TABLE IF NOT EXISTS api_hits (
+        id  BIGSERIAL PRIMARY KEY,
+        key TEXT NOT NULL,
+        at  TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS api_hits_at ON api_hits (at);
+      ALTER TABLE api_hits ENABLE ROW LEVEL SECURITY;`,
+    )
+    .then(() => undefined)
+    .catch((e) => {
+      hitsReady = null;
+      throw e;
+    });
+  return hitsReady;
+}
+
+export async function checkRateLimit(key: string): Promise<RateResult> {
+  await ensureHitsTable();
+  const db = getPool();
+  const { rows } = await db.query(
+    `SELECT count(*) FILTER (WHERE key = $1 AND at > now() - interval '1 minute')::int AS minute,
+            count(*) FILTER (WHERE key = $1)::int AS day,
+            count(*)::int AS site
+       FROM api_hits
+      WHERE at > now() - interval '1 day'`,
+    [key],
+  );
+  const { minute, day, site } = rows[0];
+  if (minute >= LIMITS.perMinute) return { ok: false, reason: "minute" };
+  if (day >= LIMITS.perDay) return { ok: false, reason: "day" };
+  if (site >= LIMITS.sitePerDay) return { ok: false, reason: "site" };
+  await db.query("INSERT INTO api_hits (key) VALUES ($1)", [key]);
+  // 가끔 이틀 지난 기록을 지운다 (표가 계속 커지지 않게)
+  if (Math.random() < 0.05) db.query("DELETE FROM api_hits WHERE at < now() - interval '2 days'").catch(() => {});
+  return { ok: true };
+}

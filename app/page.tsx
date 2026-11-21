@@ -566,7 +566,7 @@ export default function Home() {
                 <KimSays mood="think" size={44}>
                   {elapsed < 10
                     ? WAIT_LINES[Math.floor(elapsed / 2) % WAIT_LINES.length]
-                    : "무료 AI가 붐벼서 다른 모델한테 부탁하는 중이에요… 1분까지 걸릴 수 있어요."}
+                    : "무료 AI가 붐벼서 다른 모델한테 부탁하는 중이에요… 최대 50초쯤 걸려요."}
                 </KimSays>
                 <div className="bar"><span /></div>
               </div>
