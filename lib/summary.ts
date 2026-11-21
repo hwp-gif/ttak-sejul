@@ -2,13 +2,14 @@
 
 export type Decision = { text: string; quote: string; verified: boolean };
 export type Todo = { task: string; owner: string; due: string; quote: string; verified: boolean };
+export type Question = { text: string; quote: string; verified: boolean };
 
 export type SummaryResult = {
   title: string;
   summary: string[];
   decisions: Decision[];
   todos: Todo[];
-  open_questions: string[];
+  open_questions: Question[];
 };
 
 export type SummarizeResponse = SummaryResult & { model: string; saved?: boolean };
@@ -27,6 +28,21 @@ export function isQuoteInOriginal(quote: string, original: string) {
   return q.length >= 4 && normalize(original).includes(q);
 }
 
+// F10: 정리에서 빠진 메모 줄 — 어떤 근거(quote)와도 겹치지 않는 줄을 찾는다 (AI 없이 코드로)
+export function findUncoveredLines(memo: string, r: SummaryResult) {
+  const quotes = [...r.decisions, ...r.todos, ...r.open_questions]
+    .map((x) => normalize(x.quote))
+    .filter((q) => q.length >= 4);
+  return memo
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => {
+      const n = normalize(line);
+      if (n.length < 4) return false; // 너무 짧은 줄은 건너뜀
+      return !quotes.some((q) => q.includes(n) || n.includes(q));
+    });
+}
+
 // F8: 담당자·기한이 "미정"인 할 일 개수 (AI 없이 코드로)
 export function countMissing(todos: Todo[]) {
   return {
@@ -42,7 +58,7 @@ export function toKakao(r: SummaryResult) {
   lines.push("", "📝 할 일");
   lines.push(...(r.todos.length ? r.todos.map((t) => `· ${t.task} (${t.owner} / ${t.due})`) : ["· 없음"]));
   lines.push("", "❓ 남은 질문");
-  lines.push(...(r.open_questions.length ? r.open_questions.map((q) => `· ${q}`) : ["· 없음"]));
+  lines.push(...(r.open_questions.length ? r.open_questions.map((q) => `· ${q.text}`) : ["· 없음"]));
   return lines.join("\n");
 }
 
@@ -64,7 +80,7 @@ export function toMail(r: SummaryResult) {
     ...numbered(r.todos.map((t) => `${t.task} — 담당: ${t.owner} / 기한: ${t.due}`), "없음"),
     "",
     "■ 남은 질문",
-    ...numbered(r.open_questions, "없음"),
+    ...numbered(r.open_questions.map((q) => q.text), "없음"),
     "",
     "수정하거나 빠진 내용이 있으면 알려 주세요.",
     "감사합니다.",

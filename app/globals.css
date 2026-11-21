@@ -87,3 +87,20 @@ button.secondary { color: #2563eb; background: #eef3fe; padding: 8px 14px; min-h
 .copy-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
 .copy-row button { flex: 1; min-width: 140px; }
 .model { margin: 12px 0 0; font-size: 12px; color: #8c959f; text-align: right; }
+
+.actions { display: flex; gap: 6px; }
+button.ghost { background: transparent; color: #59636e; }
+.under-memo { display: flex; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.under-memo .counter { margin: 0; flex: none; }
+.hint { font-size: 13px; color: #8c959f; }
+
+.waiting { margin-top: 12px; }
+.waiting p { margin: 8px 0 0; font-size: 14px; color: #59636e; }
+.bar { height: 6px; overflow: hidden; border-radius: 999px; background: #eef3fe; }
+.bar span { display: block; width: 35%; height: 100%; border-radius: 999px; background: #2563eb; animation: slide 1.4s ease-in-out infinite; }
+@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) { .bar span { animation: none; width: 100%; opacity: .5; } }
+
+.uncovered summary { cursor: pointer; font-weight: 600; color: #59636e; min-height: 32px; }
+.uncovered ul { margin: 10px 0; color: #59636e; }
+button.done { background: #1a7f37; }

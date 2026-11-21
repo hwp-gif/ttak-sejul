@@ -21,11 +21,11 @@ const SYSTEM_PROMPT = `너는 회의 메모를 정리하는 도우미야.
 - decisions: 회의에서 "하기로 정한 것"만. 의견·제안·아직 고민 중인 것은 넣지 마. 없으면 빈 배열 [].
 - todos: 누군가 해야 할 일. owner(담당자)와 due(기한)가 메모에 없으면 반드시 "${UNKNOWN}"이라고 써.
 - open_questions: 결정 못 한 것, "다음에 다시 얘기하자"고 한 것. 없으면 빈 배열 [].
-- quote: decisions와 todos마다, 그 근거가 된 메모 원문 한 줄을 글자 그대로 복사해. 고치거나 요약하지 마.
+- quote: decisions, todos, open_questions 항목마다, 그 근거가 된 메모 원문 한 줄을 글자 그대로 복사해. 고치거나 요약하지 마.
 - title: 회의를 나타내는 15자 이내 제목.
 
 답은 다른 말 없이 아래 JSON 하나만 보내.
-{"title":"...","summary":["...","...","..."],"decisions":[{"text":"...","quote":"..."}],"todos":[{"task":"...","owner":"...","due":"...","quote":"..."}],"open_questions":["..."]}`;
+{"title":"...","summary":["...","...","..."],"decisions":[{"text":"...","quote":"..."}],"todos":[{"task":"...","owner":"...","due":"...","quote":"..."}],"open_questions":[{"text":"...","quote":"..."}]}`;
 
 const RETRY_PROMPT =
   "방금 답은 형식이 맞지 않았어. 설명 없이 title, summary(정확히 3줄), decisions, todos, open_questions 키를 가진 JSON 하나만 다시 보내 줘.";
@@ -58,16 +58,20 @@ function parseResult(content: string, memo: string): Omit<SummaryResult, "title"
   }
 
   const summary = strList(data.summary);
-  const openQuestions = strList(data.open_questions);
-  if (!summary || summary.length < 3 || !openQuestions) return null;
-  if (!Array.isArray(data.decisions) || !Array.isArray(data.todos)) return null;
+  if (!summary || summary.length < 3) return null;
+  if (![data.decisions, data.todos, data.open_questions].every(Array.isArray)) return null;
 
-  const decisions = data.decisions
-    .map((d) => (typeof d === "string" ? { text: str(d), quote: "" } : { text: str(d?.text), quote: str(d?.quote) }))
-    .filter((d) => d.text)
-    .map((d) => ({ ...d, verified: isQuoteInOriginal(d.quote, memo) }));
+  // 글자만 온 항목도 받아 주고, 근거가 원문에 있는지 확인한다.
+  const withQuote = (items: unknown[]) =>
+    items
+      .map((d) => (typeof d === "string" ? { text: str(d), quote: "" } : { text: str((d as Record<string, unknown>)?.text), quote: str((d as Record<string, unknown>)?.quote) }))
+      .filter((d) => d.text)
+      .map((d) => ({ ...d, verified: isQuoteInOriginal(d.quote, memo) }));
 
-  const todos = data.todos
+  const decisions = withQuote(data.decisions as unknown[]);
+  const openQuestions = withQuote(data.open_questions as unknown[]);
+
+  const todos = (data.todos as Record<string, unknown>[])
     .map((t) => ({ task: str(t?.task), owner: orUnknown(t?.owner), due: orUnknown(t?.due), quote: str(t?.quote) }))
     .filter((t) => t.task)
     .map((t) => ({ ...t, verified: isQuoteInOriginal(t.quote, memo) }));
