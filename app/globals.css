@@ -24,6 +24,8 @@
   --amber-soft: #f6ead3;
   --shadow: 0 1px 2px rgba(60, 45, 25, .06), 0 8px 24px rgba(60, 45, 25, .07);
   --on-accent: #fff;
+  --outline: #2b2620;  /* 고전 만화 먹선 */
+  --cartoon: var(--font-cartoon), var(--serif);
   --radius: 18px;
   --serif: var(--font-serif-kr), "Gowun Batang", Georgia, serif;
   --display: var(--font-display), Georgia, serif;
@@ -56,6 +58,7 @@
     --on-soft: #ecd3c3;
     --on-amber: #f0dcb4;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .25);
+    --outline: #0c0a08;
     color-scheme: dark;
   }
 }
@@ -156,14 +159,31 @@ button.chip.ghost { color: var(--muted); }
 .btn-start {
   width: 100%; margin-top: 16px; min-height: 64px;
   font-size: 19px; color: #fff; background: var(--green);
-  box-shadow: 0 6px 16px rgba(47, 93, 78, .25);
 }
 .btn-start:hover { background: var(--green-hover); }
 .btn-start .rec-dot { width: 12px; height: 12px; background: #f0a07c; box-shadow: 0 0 0 4px rgba(240, 160, 124, .25); }
 
-.how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 28px 0 0; padding: 0; list-style: none; }
-.how li { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 6px; text-align: center; font-size: 13px; color: var(--muted); border-radius: 14px; background: rgba(255, 253, 248, .6); border: 1px dashed var(--line); }
-.how b { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-family: var(--display); font-weight: 600; color: var(--green-text); background: var(--green-soft); }
+/* 1·2·3 안내: 만화 세 칸처럼 (먹선 테두리 + 칸 나눔) */
+.how {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  margin: 28px 0 0; padding: 0; list-style: none;
+  background: var(--paper);
+  border: 2px solid var(--outline); border-radius: 16px;
+  box-shadow: 3px 3px 0 var(--outline);
+  overflow: hidden;
+}
+.how li {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 16px 6px 14px; text-align: center;
+  font-family: var(--cartoon); font-size: 15px; line-height: 1.35; color: var(--ink);
+}
+.how li + li { border-left: 2px solid var(--outline); }
+.how b {
+  display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  font-family: var(--cartoon); font-weight: 400; font-size: 16px;
+  color: #fff; background: var(--green); border: 2px solid var(--outline);
+}
+.how li:last-child b { background: var(--terra); }
 .footnote { margin: 28px 0 0; font-size: 12px; color: var(--faint); text-align: center; }
 
 /* ───── 2. 회의 중 ───── */
@@ -226,7 +246,7 @@ button.chip.ghost { color: var(--muted); }
   margin: 12px -16px 0; padding: 12px 16px max(12px, env(safe-area-inset-bottom));
   background: linear-gradient(rgba(var(--bg-rgb), 0), var(--bg) 30%);
 }
-.btn-end { width: 100%; min-height: 60px; font-size: 18px; color: #fff; background: var(--terra); box-shadow: 0 6px 16px rgba(194, 100, 60, .28); }
+.btn-end { width: 100%; min-height: 60px; font-size: 18px; color: #fff; background: var(--terra); }
 .btn-end:hover { background: var(--terra-hover); }
 
 .waiting { margin-bottom: 10px; }
@@ -301,31 +321,124 @@ button.fill { padding: 3px 10px; min-height: 30px; font-size: 13px; color: var(-
 .help-btn.static { display: inline-grid; margin: 0 2px; }
 .trust .help-btn, .alert .help-btn { background: var(--paper); border-color: transparent; }
 
-.help-backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(20, 16, 12, .35); border-radius: 0; animation: fade .15s ease; }
-.help-sheet {
+
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ───── 고전 만화 감성: 먹선 + 비껴 찍힌 그림자 (버튼만, 내용 카드는 단정하게) ───── */
+.btn-primary, .btn-soft, .btn-start, .btn-end {
+  border: 2px solid var(--outline);
+  box-shadow: 3px 3px 0 var(--outline);
+}
+.btn-primary:active, .btn-soft:active, .btn-start:active, .btn-end:active {
+  transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--outline);
+}
+.btn-start { box-shadow: 4px 4px 0 var(--outline); }
+
+/* ───── ☕ 킴대리 ───── */
+.kim { flex: none; overflow: visible; }
+.kim-body { transform-origin: 60px 130px; animation: kim-bob 1.8s ease-in-out infinite; }
+.kim-steam { animation: kim-steam 2.4s ease-in-out infinite; transform-origin: 60px 40px; }
+.kim-wave-arm { transform-origin: 90px 86px; animation: kim-wave 1s ease-in-out infinite; }
+.kim-tired .kim-body { animation-duration: 3.2s; }
+@keyframes kim-bob { 0%, 100% { transform: translateY(0) scale(1, 1); } 50% { transform: translateY(-2px) scale(1.02, .98); } }
+@keyframes kim-steam { 0%, 100% { transform: translateY(0) skewX(0); opacity: 1; } 50% { transform: translateY(-2px) skewX(-6deg); opacity: .8; } }
+@keyframes kim-wave { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-14deg); } }
+
+.kim-says { display: flex; align-items: flex-end; gap: 10px; }
+.bubble {
+  position: relative; flex: 1; min-width: 0;
+  padding: 10px 14px;
+  background: var(--paper); color: var(--ink);
+  border: 2px solid var(--outline); border-radius: 16px;
+  box-shadow: 3px 3px 0 var(--outline);
+  font-size: 15px; line-height: 1.55;
+}
+/* 말풍선 꼬리 (왼쪽 아래, 킴대리 쪽) */
+.bubble::before, .bubble::after { content: ""; position: absolute; bottom: 12px; border-style: solid; border-color: transparent; }
+.bubble::before { left: -13px; border-width: 7px 13px 7px 0; border-right-color: var(--outline); }
+.bubble::after { left: -9px; bottom: 14px; border-width: 5px 10px 5px 0; border-right-color: var(--paper); }
+
+.hero-kim { margin-bottom: 18px; }
+.hero-kim .bubble { font-size: 15px; }
+.greeting { font-family: var(--display); font-style: italic; font-weight: 600; color: var(--terra); font-size: 17px; }
+
+.trust { margin-top: 14px; }
+.trust .bubble { background: var(--green-soft); color: var(--green-text); font-weight: 500; }
+.trust .bubble::after { border-right-color: var(--green-soft); }
+.trust.warn .bubble { background: var(--amber-soft); color: var(--amber); }
+.trust.warn .bubble::after { border-right-color: var(--amber-soft); }
+
+.waiting .kim-says { margin-bottom: 10px; }
+.waiting .bubble { font-family: var(--cartoon); font-size: 16px; }
+
+.tired-note { display: flex; align-items: center; gap: 4px; margin-top: 8px; }
+.tired-note .kim-says { flex: 1; }
+.tired-note .bubble { background: var(--amber-soft); color: var(--on-amber); font-size: 14px; }
+.tired-note .bubble::after { border-right-color: var(--amber-soft); }
+
+.coach { margin-top: 14px; }
+.coach .bubble { background: var(--terra-soft); color: var(--on-soft); }
+.coach .bubble::after { border-right-color: var(--terra-soft); }
+.coach-title { margin: 0 0 6px; font-family: var(--cartoon); font-size: 18px; color: var(--ink); }
+.coach ul { margin: 0 0 12px; padding-left: 18px; font-size: 14.5px; display: grid; gap: 4px; }
+.coach .btn-soft { min-height: 40px; padding: 6px 18px; background: var(--paper); }
+
+.all-done { margin-top: 14px; }
+.all-done .bubble { font-family: var(--cartoon); font-size: 16px; }
+.quip { color: var(--faint); font-style: italic; }
+
+/* (?) 대사창: 화면 아래에서 킴대리가 고개를 내밀고 말한다 */
+.help-backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(20, 16, 12, .32); border-radius: 0; animation: fade-in .28s ease-out both; }
+.kim-dialog {
   position: fixed; z-index: 21; left: 50%; bottom: 0; transform: translateX(-50%);
   width: min(560px, 100%);
-  padding: 22px 20px max(20px, env(safe-area-inset-bottom));
-  background: var(--paper); border-radius: 22px 22px 0 0;
-  box-shadow: 0 -8px 30px rgba(43, 38, 32, .15);
-  animation: rise .2s ease;
+  display: flex; align-items: flex-end; gap: 6px;
+  padding: 0 14px max(16px, env(safe-area-inset-bottom));
+  animation: rise .32s cubic-bezier(.22, 1, .36, 1) both;
 }
-.help-sheet h3 { margin: 0 0 8px; font-family: var(--serif); font-size: 19px; }
-.help-sheet p { margin: 0 0 18px; color: var(--muted); font-size: 15.5px; line-height: 1.7; }
-.help-sheet .btn-primary { width: 100%; }
-@keyframes rise { from { transform: translate(-50%, 24px); opacity: 0; } }
-@keyframes fade { from { opacity: 0; } }
+.kim-dialog .kim-peek { margin-bottom: -6px; }
+.bubble.big { padding: 22px 18px 16px; border-width: 2.5px; box-shadow: 4px 4px 0 var(--outline); }
+.nameplate {
+  position: absolute; top: -14px; left: 16px;
+  padding: 2px 12px; border-radius: 999px;
+  background: var(--terra); color: #fff; border: 2px solid var(--outline);
+  font-family: var(--cartoon); font-size: 14px;
+}
+.bubble.big h3 { margin: 0 0 6px; font-family: var(--cartoon); font-weight: 400; font-size: 19px; }
+.typed { margin: 0 0 14px; color: var(--muted); font-size: 15.5px; line-height: 1.7; }
+.bubble.big .btn-primary { width: 100%; }
+/* 부드럽게 나타나고 사라지기 */
+@keyframes rise { from { transform: translate(-50%, 24px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+@keyframes sink { from { transform: translate(-50%, 0); opacity: 1; } to { transform: translate(-50%, 16px); opacity: 0; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+.kim-layer.leaving .kim-dialog { animation: sink .2s ease-in both; }
+.kim-layer.leaving .help-backdrop { animation: fade-out .2s ease-in both; }
 
-.coach {
-  margin-top: 14px; padding: 16px 18px;
-  border-radius: var(--radius);
-  background: var(--terra-soft);
-  border: 1px solid var(--terra-line);
+/* 결과 화면: 옛날 만화 끝날 때처럼 동그라미가 열리며 등장 */
+.iris { animation: iris .7s ease-out both; }
+@keyframes iris { from { clip-path: circle(0% at 50% 45%); } to { clip-path: circle(150% at 50% 45%); } }
+
+/* "근거 100%" 도장 */
+.result-head { position: relative; }
+.stamp {
+  position: absolute; top: 14px; right: 4px;
+  display: grid; place-items: center; text-align: center;
+  width: 78px; height: 78px; border-radius: 50%;
+  border: 3px double var(--terra); color: var(--terra);
+  font-family: var(--cartoon); font-size: 15px; line-height: 1.1;
+  transform: rotate(-12deg); opacity: .85;
+  animation: stamp .35s cubic-bezier(.2, 1.6, .5, 1) .65s both;
+  pointer-events: none;
 }
-.coach-title { margin: 0 0 8px; font-family: var(--serif); font-weight: 700; font-size: 17px; }
-.coach ul { margin: 0 0 12px; padding-left: 18px; font-size: 14.5px; color: var(--on-soft); display: grid; gap: 4px; }
-.coach .btn-soft { min-height: 40px; padding: 8px 18px; background: var(--paper); }
+.result-head:has(.stamp) h1 { padding-right: 84px; }
+@keyframes stamp { from { transform: rotate(-12deg) scale(2.4); opacity: 0; } to { transform: rotate(-12deg) scale(1); opacity: .85; } }
+
+/* 할 일 체크하면 톡 */
+.todo-head input:checked { animation: pop .25s ease; }
+@keyframes pop { 50% { transform: scale(1.3); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .help-sheet, .help-backdrop { animation: none; }
+  .kim-body, .kim-steam, .kim-wave-arm, .iris, .stamp, .kim-dialog, .help-backdrop, .todo-head input:checked { animation: none !important; }
 }

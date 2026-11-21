@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { EXAMPLES } from "@/lib/examples";
+import { KimDialog, KimSays, type Mood } from "./Kim";
 import { findPrivate, maskPrivate } from "@/lib/privacy";
 import {
   MAX_LENGTH,
@@ -24,25 +25,34 @@ const COACH_KEY = "ttak-sejul:coach-seen";
 const HELP = {
   verify: {
     title: "✓ 원문 확인이 뭔가요?",
-    body: "AI가 붙인 근거 문장이 메모에 실제로 있는지 코드로 한 글자씩 맞춰 봤어요. ✓면 메모에 있는 내용, ⚠면 AI가 바꿔 썼거나 지어냈을 수 있으니 한 번 확인해 주세요.",
+    mood: "think",
+    body: "제가 근거 문장을 메모랑 한 글자씩 대조해 봤어요! ✓면 메모에 진짜 있는 말이고요, ⚠면… 제가 살짝 바꿔 썼거나 지어냈을 수도 있어요 💦 그것만 한 번 봐 주세요.",
   },
   unknown: {
     title: "‘미정’은 왜 생기나요?",
-    body: "메모에 담당자나 기한이 없으면 AI가 지어내지 않고 ‘미정’으로 둬요. ‘정하기 ✎’를 누르면 메모에 나온 이름이나 기한 보기가 떠서 바로 고를 수 있어요. 복사할 때도 반영돼요.",
+    mood: "happy",
+    body: "메모에 담당자나 기한이 없으면, 저는 절대 지어내지 않고 ‘미정’으로 둬요. ‘정하기 ✎’를 누르면 메모에 나온 이름이 버튼으로 떠요. 카톡·메일 복사에도 반영됩니다!",
   },
   uncovered: {
     title: "정리에 안 들어간 메모",
-    body: "AI 요약은 지어내기보다 빼먹는 실수가 더 많아요. 그래서 어떤 근거에도 쓰이지 않은 메모 줄을 모아 보여 드려요. 중요한 내용이 있으면 메모를 고쳐 다시 정리해 보세요.",
+    mood: "think",
+    body: "솔직히 말씀드리면… AI는 지어내는 것보다 빼먹는 실수를 더 많이 해요. 그래서 제가 정리에 안 쓴 메모 줄을 따로 모아 놨어요. 중요한 게 있으면 메모를 고쳐서 다시 맡겨 주세요!",
   },
   lang: {
     title: "결과 언어",
-    body: "요약 · 결정 · 할 일을 고른 언어로 정리해요. 근거 문장과 이름은 원문 그대로 둬서 ✓ 원문 확인은 그대로 유지돼요.",
+    mood: "wave",
+    body: "English, 日本語, 中文, Tiếng Việt로도 정리해 드려요! 근거 문장이랑 이름은 원문 그대로 둬서 ✓ 원문 확인은 그대로예요.",
   },
   timer: {
     title: "회의 타이머",
-    body: "회의 시작부터 시간을 재요. 정리하면 결과에 ‘32분 회의’처럼 남아요. 회의 중에는 화면이 꺼지지 않게 해 둬요 (지원하는 폰만).",
+    mood: "happy",
+    body: "회의 시간을 재고 있어요. 결과에 ‘32분 회의’처럼 남겨 둘게요. 회의 중엔 화면이 안 꺼지게 꼭 붙잡고 있을게요! (30분이 넘으면… 제 김이 식어요.)",
   },
-} as const;
+} as const satisfies Record<string, { title: string; mood: Mood; body: string }>;
+
+// 정리 기다리는 동안 킴대리 혼잣말
+const WAIT_LINES = ["할 일 줍는 중…", "누가 뭘 하기로 했더라…", "근거 맞춰 보는 중…", "세 줄로 꾹꾹 누르는 중…"];
+const TIRED_MINUTES = 30;
 type HelpKey = keyof typeof HELP;
 
 type Result = SummarizeResponse & { memo: string; minutes: number; date: string };
@@ -118,6 +128,7 @@ export default function Home() {
   const [doneTodos, setDoneTodos] = useState<Set<number>>(new Set());
   const [help, setHelp] = useState<HelpKey | null>(null);
   const [showCoach, setShowCoach] = useState(false);
+  const [tiredHidden, setTiredHidden] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const memoRef = useRef<HTMLTextAreaElement>(null);
 
@@ -159,14 +170,6 @@ export default function Home() {
     return () => { lock?.release().catch(() => {}); };
   }, [stage]);
 
-  // 도움말은 Esc로 닫기
-  useEffect(() => {
-    if (!help) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setHelp(null); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [help]);
-
   // 처음 결과를 본 사람에게만 짧은 안내 카드 (이 브라우저에 한 번만)
   useEffect(() => {
     if (stage !== "result") return;
@@ -190,14 +193,7 @@ export default function Home() {
   );
 
   const helpSheet = help && (
-    <>
-      <button type="button" className="help-backdrop" aria-label="설명 닫기" onClick={() => setHelp(null)} />
-      <div className="help-sheet" role="dialog" aria-modal="true" aria-labelledby="help-title">
-        <h3 id="help-title">{HELP[help].title}</h3>
-        <p>{HELP[help].body}</p>
-        <button type="button" className="btn-primary" onClick={() => setHelp(null)}>알겠어요</button>
-      </div>
-    </>
+    <KimDialog key={help} title={HELP[help].title} body={HELP[help].body} mood={HELP[help].mood} onClose={() => setHelp(null)} />
   );
 
   // 기다림 안내: 정리 중에는 1초마다 경과 시간을 올린다.
@@ -224,6 +220,7 @@ export default function Home() {
 
   function startMeeting() {
     setError("");
+    setTiredHidden(false);
     setStartedAt(Date.now());
   }
 
@@ -347,7 +344,10 @@ export default function Home() {
         </header>
 
         <section className="hero">
-          <p className="greeting">{clock ? greetingFor(clock.getHours()) : " "}</p>
+          <KimSays mood="wave" size={72} className="hero-kim">
+            <span className="greeting">{clock ? greetingFor(clock.getHours()).replace(".", "!") : "Hello!"}</span>{" "}
+            킴대리예요. 오늘 회의도 딱 세 줄로 끝내 봐요 ☕
+          </KimSays>
           <h1>오늘 회의,<br />세 줄로 끝내요.</h1>
           <p className="lede">
             회의를 시작할 때 켜 두고 편하게 적으세요. 끝나면 요약 · 결정 · 할 일로 정리하고,
@@ -403,6 +403,15 @@ export default function Home() {
           </span>
           {helpBtn("timer")}
         </header>
+
+        {now && startedAt && now - startedAt >= TIRED_MINUTES * 60_000 && !tiredHidden && (
+          <div className="tired-note">
+            <KimSays mood="tired" size={40}>
+              부장님… 제 김이 식어 가고 있어요. 정할 건 정해졌나요?
+            </KimSays>
+            <button type="button" className="icon-btn" aria-label="알림 닫기" onClick={() => setTiredHidden(true)}>×</button>
+          </div>
+        )}
 
         <form ref={formRef} className="meeting-form" onSubmit={handleSubmit}>
           <input
@@ -478,12 +487,12 @@ export default function Home() {
           <div className="dock">
             {loading && (
               <div className="waiting" role="status">
-                <div className="bar"><span /></div>
-                <p>
+                <KimSays mood="think" size={44}>
                   {elapsed < 10
-                    ? "요약 · 결정 · 할 일을 찾고, 근거를 원문과 맞춰 보고 있어요. 보통 2~5초 걸려요."
-                    : "무료 AI가 붐벼서 다른 모델로 다시 시도하고 있어요. 1분까지 걸릴 수 있어요."}
-                </p>
+                    ? WAIT_LINES[Math.floor(elapsed / 2) % WAIT_LINES.length]
+                    : "무료 AI가 붐벼서 다른 모델한테 부탁하는 중이에요… 1분까지 걸릴 수 있어요."}
+                </KimSays>
+                <div className="bar"><span /></div>
               </div>
             )}
             <button type="submit" className="btn-end" disabled={loading}>
@@ -502,9 +511,11 @@ export default function Home() {
   const checked = [...r.decisions, ...r.todos];
   const verifiedCount = checked.filter((x) => x.verified).length;
   const uncovered = findUncoveredLines(r.memo, r);
+  const allVerified = checked.length > 0 && verifiedCount === checked.length;
+  const allDone = r.todos.length > 0 && doneTodos.size === r.todos.length;
 
   return (
-    <main className="shell result" aria-live="polite">
+    <main className="shell result iris" aria-live="polite">
       <header className="topbar">
         <button type="button" className="icon-btn text" onClick={() => setResult(null)}>← 메모 고치기</button>
         <Wordmark />
@@ -513,25 +524,28 @@ export default function Home() {
       <section className="result-head">
         <p className="kicker">{r.date}{r.minutes > 0 ? ` · ${r.minutes}분 회의` : ""}</p>
         <h1>{r.title}</h1>
+        {allVerified && <div className="stamp" aria-hidden>근거<br />100%</div>}
         {checked.length > 0 && (
-          <p className={`trust${verifiedCount === checked.length ? "" : " warn"}`}>
-            {verifiedCount === checked.length
-              ? `✓ 결정·할 일 ${checked.length}개 모두 메모 원문에서 근거를 찾았어요`
-              : `⚠ ${checked.length}개 중 ${checked.length - verifiedCount}개는 원문에서 근거를 못 찾았어요. 확인해 주세요`}
+          <KimSays mood={allVerified ? "love" : "think"} size={52} className={`trust${allVerified ? "" : " warn"}`}>
+            {allVerified
+              ? `결정·할 일 ${checked.length}개, 전부 원문에 있습니다! 오늘은 칼퇴각이에요 ☕`
+              : `앗… ${checked.length}개 중 ${checked.length - verifiedCount}개는 원문에서 못 찾았어요. 제가 좀 지어낸 것 같아요. 한 번만 봐 주세요 💦`}
             {helpBtn("verify")}
-          </p>
+          </KimSays>
         )}
       </section>
 
       {showCoach && (
         <aside className="coach" aria-label="처음 쓰는 분께">
-          <p className="coach-title">처음이시죠? 👋</p>
-          <ul>
-            <li><b>✓ 원문 확인</b> — AI가 쓴 근거가 메모에 실제로 있다는 뜻이에요</li>
-            <li><b>미정 · 정하기 ✎</b> — 빠진 담당자 · 기한을 눌러서 바로 정해요</li>
-            <li>궁금한 곳은 옆의 <span className="help-btn static" aria-hidden>?</span> 를 눌러 보세요</li>
-          </ul>
-          <button type="button" className="btn-soft" onClick={closeCoach}>알겠어요</button>
+          <KimSays mood="wave" size={56}>
+            <p className="coach-title">처음이시죠? 킴대리입니다 👋</p>
+            <ul>
+              <li><b>✓ 원문 확인</b> — 제가 쓴 근거가 메모에 진짜 있다는 뜻이에요</li>
+              <li><b>미정 · 정하기 ✎</b> — 빠진 담당자 · 기한을 눌러서 바로 정해요</li>
+              <li>궁금한 곳은 옆의 <span className="help-btn static" aria-hidden>?</span> 를 눌러 주세요. 제가 설명해 드릴게요!</li>
+            </ul>
+            <button type="button" className="btn-soft" onClick={closeCoach}>알겠어요</button>
+          </KimSays>
         </aside>
       )}
 
@@ -545,7 +559,7 @@ export default function Home() {
       <section className="card">
         <h2>결정 사항</h2>
         {r.decisions.length === 0 ? (
-          <p className="empty">결정된 사항 없음</p>
+          <p className="empty">결정된 사항 없음 <span className="quip">— 오늘은 이야기만 나눈 날이네요. 그것도 회의죠, 뭐.</span></p>
         ) : (
           <ul className="items">
             {r.decisions.map((d, i) => (
@@ -605,6 +619,9 @@ export default function Home() {
               </li>
             ))}
           </ul>
+        )}
+        {allDone && (
+          <KimSays mood="love" size={40} className="all-done">오늘 회의, 완벽 마무리! 수고하셨어요 ☕</KimSays>
         )}
       </section>
 
