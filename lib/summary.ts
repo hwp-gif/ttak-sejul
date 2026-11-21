@@ -1,7 +1,7 @@
 // 화면과 서버가 같이 쓰는 정리 결과 모양과 도우미 함수
 
 export type Decision = { text: string; quote: string; verified: boolean };
-export type Todo = { task: string; owner: string; due: string; quote: string; verified: boolean };
+export type Todo = { task: string; owner: string; due: string; quote: string; verified: boolean; edited?: boolean };
 export type Question = { text: string; quote: string; verified: boolean };
 
 export type SummaryResult = {
@@ -10,6 +10,7 @@ export type SummaryResult = {
   decisions: Decision[];
   todos: Todo[];
   open_questions: Question[];
+  people: string[];
 };
 
 export type SummarizeResponse = SummaryResult & { model: string; saved?: boolean };

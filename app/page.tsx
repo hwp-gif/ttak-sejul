@@ -2,14 +2,41 @@
 
 import { useEffect, useRef, useState } from "react";
 import { EXAMPLES } from "@/lib/examples";
+import { findPrivate, maskPrivate } from "@/lib/privacy";
 import {
   MAX_LENGTH,
   countMissing,
   findUncoveredLines,
   toKakao,
   toMail,
+  UNKNOWN,
   type SummarizeResponse,
+  type Todo,
 } from "@/lib/summary";
+
+const DUE_CHOICES = ["오늘", "내일", "이번 주", "다음 주"];
+
+// 미정 바로 채우기: 메모에 나온 이름(또는 기한 보기)을 버튼으로 고르거나 직접 입력
+function Picker({ choices, placeholder, onPick, onClose }: {
+  choices: string[]; placeholder: string; onPick: (v: string) => void; onClose: () => void;
+}) {
+  const [custom, setCustom] = useState("");
+  return (
+    <div className="picker">
+      {choices.map((c) => (
+        <button key={c} type="button" className="chip" onClick={() => onPick(c)}>{c}</button>
+      ))}
+      <form
+        className="custom"
+        onSubmit={(e) => { e.preventDefault(); if (custom.trim()) onPick(custom.trim().slice(0, 20)); }}
+      >
+        <input type="text" value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
+        <button type="submit" className="chip">확인</button>
+      </form>
+      <button type="button" className="chip ghost" onClick={onClose}>닫기</button>
+    </div>
+  );
+}
 
 function Evidence({ quote, verified }: { quote: string; verified: boolean }) {
   if (!quote) return <p className="evidence warn">⚠ 근거 문장이 없어요</p>;
@@ -32,6 +59,8 @@ export default function Home() {
   const [copied, setCopied] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [restored, setRestored] = useState(false);
+  const [privacyAsk, setPrivacyAsk] = useState<{ phones: number; emails: number } | null>(null);
+  const [picking, setPicking] = useState<{ index: number; field: "owner" | "due" } | null>(null);
   const resultRef = useRef<HTMLElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -86,13 +115,32 @@ export default function Home() {
     setRestored(false);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
     if (memo.trim() === "") return setError("메모를 입력해 주세요.");
     if (tooLong) return setError(`메모가 너무 길어요. ${MAX_LENGTH.toLocaleString()}자 이하로 줄여 주세요.`);
 
+    // 개인정보 경고: 전화번호·이메일이 있으면 보내기 전에 먼저 묻는다.
+    const found = findPrivate(memo);
+    if (found.phones + found.emails > 0) {
+      setError("");
+      setPrivacyAsk(found);
+      return;
+    }
+    summarize(memo);
+  }
+
+  function answerPrivacy(mask: boolean) {
+    const text = mask ? maskPrivate(memo) : memo;
+    if (mask) setMemo(text);
+    setPrivacyAsk(null);
+    summarize(text);
+  }
+
+  async function summarize(memo: string) {
     setError("");
+    setPicking(null);
     setCopied("");
     setLoading(true);
     try {
@@ -112,6 +160,14 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function fillTodo(index: number, field: "owner" | "due", value: string) {
+    setResult((r) => r && {
+      ...r,
+      todos: r.todos.map((t, i): Todo => (i === index ? { ...t, [field]: value, edited: true } : t)),
+    });
+    setPicking(null);
   }
 
   async function copy(kind: "kakao" | "mail") {
@@ -205,6 +261,20 @@ export default function Home() {
         )}
 
         {error && <p className="error">{error}</p>}
+        {privacyAsk && (
+          <div className="privacy-ask" role="alertdialog" aria-label="개인정보 확인">
+            <p>
+              🔒 메모에{" "}
+              {[privacyAsk.phones > 0 && `전화번호 ${privacyAsk.phones}개`, privacyAsk.emails > 0 && `이메일 ${privacyAsk.emails}개`]
+                .filter(Boolean).join(", ")}
+              가 있어요. 무료 AI로 보내기 전에 가릴까요?
+            </p>
+            <div className="copy-row">
+              <button type="button" onClick={() => answerPrivacy(true)}>가리고 정리하기 (010-****-****)</button>
+              <button type="button" className="secondary" onClick={() => answerPrivacy(false)}>그대로 정리하기</button>
+            </div>
+          </div>
+        )}
         <p className="privacy">※ 무료 AI로 보내지므로 실제 회사 기밀·개인정보는 넣지 마세요.</p>
       </form>
 
@@ -252,7 +322,7 @@ export default function Home() {
                   missing.owner > 0 && `담당자가 정해지지 않은 할 일 ${missing.owner}개`,
                   missing.due > 0 && `기한이 없는 할 일 ${missing.due}개`,
                 ].filter(Boolean).join(" · ")}
-                {" — 회의 끝나기 전에 정해 보세요."}
+                {" — 아래 '정하기 ✎'를 눌러 바로 정해 보세요."}
               </p>
             )}
             {result.todos.length === 0 ? (
@@ -263,9 +333,32 @@ export default function Home() {
                   <li key={i}>
                     <p className="item-text">{t.task}</p>
                     <p className="meta">
-                      <span className={t.owner === "미정" ? "unknown" : ""}>담당: {t.owner}</span>
-                      <span className={t.due === "미정" ? "unknown" : ""}>기한: {t.due}</span>
+                      {(["owner", "due"] as const).map((field) => {
+                        const value = t[field];
+                        const label = field === "owner" ? "담당" : "기한";
+                        return value === UNKNOWN ? (
+                          <button
+                            key={field}
+                            type="button"
+                            className="fill"
+                            onClick={() => setPicking({ index: i, field })}
+                          >
+                            {label}: 미정 · 정하기 ✎
+                          </button>
+                        ) : (
+                          <span key={field}>{label}: {value}</span>
+                        );
+                      })}
+                      {t.edited && <span className="edited">✎ 직접 정함</span>}
                     </p>
+                    {picking?.index === i && (
+                      <Picker
+                        choices={picking.field === "owner" ? result.people : DUE_CHOICES}
+                        placeholder={picking.field === "owner" ? "이름 직접 입력" : "예: 11/27(금)"}
+                        onPick={(v) => fillTodo(i, picking.field, v)}
+                        onClose={() => setPicking(null)}
+                      />
+                    )}
                     <Evidence quote={t.quote} verified={t.verified} />
                   </li>
                 ))}
