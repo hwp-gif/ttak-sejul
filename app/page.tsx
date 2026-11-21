@@ -7,6 +7,8 @@ import {
   MAX_LENGTH,
   countMissing,
   findUncoveredLines,
+  LANGS,
+  type Lang,
   toKakao,
   toMail,
   UNKNOWN,
@@ -59,6 +61,7 @@ export default function Home() {
   const [copied, setCopied] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [restored, setRestored] = useState(false);
+  const [lang, setLang] = useState<Lang>("ko");
   const [privacyAsk, setPrivacyAsk] = useState<{ phones: number; emails: number } | null>(null);
   const [picking, setPicking] = useState<{ index: number; field: "owner" | "due" } | null>(null);
   const resultRef = useRef<HTMLElement>(null);
@@ -147,7 +150,7 @@ export default function Home() {
       const res = await fetch("/api/summarize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, memo }),
+        body: JSON.stringify({ title, memo, lang }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data) {
@@ -244,6 +247,16 @@ export default function Home() {
           <span className={`counter${tooLong ? " over" : ""}`}>
             {memo.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()}자
           </span>
+        </div>
+
+        <div className="lang-row">
+          <label htmlFor="lang">결과 언어</label>
+          <select id="lang" value={lang} onChange={(e) => setLang(e.target.value as Lang)} disabled={loading}>
+            {(Object.keys(LANGS) as Lang[]).map((code) => (
+              <option key={code} value={code}>{LANGS[code].label}</option>
+            ))}
+          </select>
+          {lang !== "ko" && <span className="hint">근거 문장은 원문 그대로 보여 줘요 (✓ 확인용)</span>}
         </div>
 
         <button type="submit" className="primary" disabled={loading}>

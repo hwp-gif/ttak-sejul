@@ -11,12 +11,24 @@ export type SummaryResult = {
   todos: Todo[];
   open_questions: Question[];
   people: string[];
+  lang?: Lang;
 };
 
 export type SummarizeResponse = SummaryResult & { model: string; saved?: boolean };
 
 export const MAX_LENGTH = 3000;
-export const UNKNOWN = "미정";
+export const UNKNOWN = "미정"; // AI와 코드가 쓰는 '모름' 표시 (언어와 상관없이 같음)
+
+// 결과 언어: 요약·결정·할 일·남은 질문만 번역하고, 근거(quote)는 원문 그대로 둔다 (✓ 확인을 위해)
+export const LANGS = {
+  ko: { label: "한국어", prompt: "한국어", unknown: "미정", summary: "요약", decisions: "결정", todos: "할 일", questions: "남은 질문", none: "없음", noDecision: "결정된 사항 없음", owner: "담당", due: "기한", minutes: "회의 정리", mailSubject: "회의록", hello: "안녕하세요. 오늘 회의 내용을 정리해 공유드립니다.", bye: "수정하거나 빠진 내용이 있으면 알려 주세요.\n감사합니다." },
+  en: { label: "English", prompt: "English", unknown: "TBD", summary: "Summary", decisions: "Decisions", todos: "Action items", questions: "Open questions", none: "None", noDecision: "No decisions made", owner: "Owner", due: "Due", minutes: "Meeting notes", mailSubject: "Minutes", hello: "Hello, here is a summary of today's meeting.", bye: "Please let me know if anything is missing or needs correction.\nThank you." },
+  ja: { label: "日本語", prompt: "日本語", unknown: "未定", summary: "要約", decisions: "決定事項", todos: "ToDo", questions: "未解決の課題", none: "なし", noDecision: "決定事項なし", owner: "担当", due: "期限", minutes: "会議まとめ", mailSubject: "議事録", hello: "お疲れさまです。本日の会議内容をまとめて共有します。", bye: "修正や漏れがあればお知らせください。\nよろしくお願いいたします。" },
+  zh: { label: "中文", prompt: "简体中文", unknown: "待定", summary: "摘要", decisions: "决定事项", todos: "待办事项", questions: "待讨论问题", none: "无", noDecision: "暂无决定事项", owner: "负责人", due: "截止", minutes: "会议纪要", mailSubject: "会议纪要", hello: "大家好，现将今天的会议内容整理如下。", bye: "如有遗漏或需要修改，请告诉我。\n谢谢。" },
+  vi: { label: "Tiếng Việt", prompt: "tiếng Việt", unknown: "Chưa rõ", summary: "Tóm tắt", decisions: "Quyết định", todos: "Việc cần làm", questions: "Câu hỏi còn lại", none: "Không có", noDecision: "Chưa có quyết định", owner: "Phụ trách", due: "Hạn", minutes: "Tóm tắt cuộc họp", mailSubject: "Biên bản họp", hello: "Xin chào, dưới đây là tóm tắt cuộc họp hôm nay.", bye: "Nếu có thiếu sót hoặc cần sửa, vui lòng cho tôi biết.\nXin cảm ơn." },
+} as const;
+export type Lang = keyof typeof LANGS;
+export const isLang = (v: unknown): v is Lang => typeof v === "string" && v in LANGS;
 
 // 공백·문장부호·따옴표 차이는 무시하고 비교한다.
 function normalize(text: string) {
@@ -52,38 +64,43 @@ export function countMissing(todos: Todo[]) {
   };
 }
 
-// F3: 카톡용·메일용 글 모양 (AI를 다시 부르지 않음)
+// F3: 카톡용·메일용 글 모양 (AI를 다시 부르지 않음). 결과 언어에 맞춰 머리말도 바꾼다.
+const shown = (v: string, lang: Lang) => (v === UNKNOWN ? LANGS[lang].unknown : v);
+
 export function toKakao(r: SummaryResult) {
-  const lines = [`[${r.title}] 회의 정리`, "", "📌 요약", ...r.summary.map((s) => `· ${s}`), "", "✅ 결정"];
-  lines.push(...(r.decisions.length ? r.decisions.map((d) => `· ${d.text}`) : ["· 결정된 사항 없음"]));
-  lines.push("", "📝 할 일");
-  lines.push(...(r.todos.length ? r.todos.map((t) => `· ${t.task} (${t.owner} / ${t.due})`) : ["· 없음"]));
-  lines.push("", "❓ 남은 질문");
-  lines.push(...(r.open_questions.length ? r.open_questions.map((q) => `· ${q.text}`) : ["· 없음"]));
+  const lang = r.lang ?? "ko";
+  const L = LANGS[lang];
+  const lines = [`[${r.title}] ${L.minutes}`, "", `📌 ${L.summary}`, ...r.summary.map((s) => `· ${s}`), "", `✅ ${L.decisions}`];
+  lines.push(...(r.decisions.length ? r.decisions.map((d) => `· ${d.text}`) : [`· ${L.noDecision}`]));
+  lines.push("", `📝 ${L.todos}`);
+  lines.push(...(r.todos.length ? r.todos.map((t) => `· ${t.task} (${shown(t.owner, lang)} / ${shown(t.due, lang)})`) : [`· ${L.none}`]));
+  lines.push("", `❓ ${L.questions}`);
+  lines.push(...(r.open_questions.length ? r.open_questions.map((q) => `· ${q.text}`) : [`· ${L.none}`]));
   return lines.join("\n");
 }
 
 export function toMail(r: SummaryResult) {
+  const lang = r.lang ?? "ko";
+  const L = LANGS[lang];
   const numbered = (items: string[], empty: string) =>
     items.length ? items.map((s, i) => `  ${i + 1}. ${s}`) : [`  - ${empty}`];
   return [
-    `제목: [회의록] ${r.title}`,
+    `${lang === "ko" ? "제목" : "Subject"}: [${L.mailSubject}] ${r.title}`,
     "",
-    "안녕하세요. 오늘 회의 내용을 정리해 공유드립니다.",
+    L.hello,
     "",
-    "■ 핵심 요약",
-    ...numbered(r.summary, "없음"),
+    `■ ${L.summary}`,
+    ...numbered(r.summary, L.none),
     "",
-    "■ 결정 사항",
-    ...numbered(r.decisions.map((d) => d.text), "결정된 사항 없음"),
+    `■ ${L.decisions}`,
+    ...numbered(r.decisions.map((d) => d.text), L.noDecision),
     "",
-    "■ 할 일",
-    ...numbered(r.todos.map((t) => `${t.task} — 담당: ${t.owner} / 기한: ${t.due}`), "없음"),
+    `■ ${L.todos}`,
+    ...numbered(r.todos.map((t) => `${t.task} — ${L.owner}: ${shown(t.owner, lang)} / ${L.due}: ${shown(t.due, lang)}`), L.none),
     "",
-    "■ 남은 질문",
-    ...numbered(r.open_questions.map((q) => q.text), "없음"),
+    `■ ${L.questions}`,
+    ...numbered(r.open_questions.map((q) => q.text), L.none),
     "",
-    "수정하거나 빠진 내용이 있으면 알려 주세요.",
-    "감사합니다.",
+    L.bye,
   ].join("\n");
 }

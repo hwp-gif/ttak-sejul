@@ -116,3 +116,7 @@ button.chip { padding: 6px 14px; min-height: 40px; font-size: 15px; color: #2563
 button.chip.ghost { color: #59636e; border-color: #d0d7de; }
 .picker .custom { display: flex; gap: 6px; }
 .picker .custom input { width: 140px; padding: 8px 10px; }
+
+.lang-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.lang-row label { font-weight: 600; }
+.lang-row select { padding: 8px 12px; min-height: 40px; font: inherit; border: 1px solid #d0d7de; border-radius: 8px; background: #fff; }
