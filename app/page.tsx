@@ -253,9 +253,9 @@ export default function Home() {
           <div className="waiting" role="status">
             <div className="bar"><span /></div>
             <p>
-              {elapsed < 30
-                ? "AI가 요약 · 결정 · 할 일을 찾고, 근거를 원문과 맞춰 보고 있어요. 보통 10~30초 걸려요."
-                : "무료 AI가 붐벼서 조금 더 걸리고 있어요. 1분까지 걸릴 수 있어요."}
+              {elapsed < 10
+                ? "AI가 요약 · 결정 · 할 일을 찾고, 근거를 원문과 맞춰 보고 있어요. 보통 2~5초 걸려요."
+                : "무료 AI가 붐벼서 다른 모델로 다시 시도하고 있어요. 1분까지 걸릴 수 있어요."}
             </p>
           </div>
         )}

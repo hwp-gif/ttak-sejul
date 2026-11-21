@@ -83,7 +83,7 @@
 | 부분 | 사용 기술 |
 |---|---|
 | 화면 + 서버 | Next.js (App Router) + TypeScript |
-| AI | OpenRouter API, 모델 `openrouter/free`, JSON 형식으로 답 받기 |
+| AI | OpenRouter API 무료 모델, JSON 형식으로 답 받기. 빠른 순서로 시도: `nvidia/nemotron-3.5-super-vl:free`(생각 끄기) → `baidu/ernie-5.5-flash-preview:free` → `openrouter/free` (11/21 측정: 1~7초 / 5~30초 / 13~58초) |
 | DB | Supabase PostgreSQL, `pg` 라이브러리 |
 | 배포 | GitHub → Netlify 자동 배포 |
 
