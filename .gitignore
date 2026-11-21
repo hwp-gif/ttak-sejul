@@ -1,0 +1,15 @@
+# 비밀 정보 (GitHub에 올리지 않음)
+.env
+.env*.local
+
+# 자동 생성 폴더
+node_modules/
+.next/
+out/
+.netlify/
+*.tsbuildinfo
+next-env.d.ts
+
+# 백업·덤프 파일
+*.sql
+*.dump
