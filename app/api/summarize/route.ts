@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { errorCode, isClientId, saveMeeting } from "@/lib/db";
-import { RATE_MESSAGES, rateLimit } from "@/lib/ratelimit";
+import { rateLimit, rateMessage } from "@/lib/ratelimit";
 import {
   LANGS,
   MAX_LENGTH,
@@ -258,7 +258,7 @@ export async function POST(request: Request) {
   // 팀 키 보호: 사용 횟수 제한 (빈 메모 · 너무 긴 메모처럼 AI를 안 부르는 요청은 세지 않음)
   const rate = await rateLimit(request);
   if (!rate.ok) {
-    return NextResponse.json({ error: RATE_MESSAGES[rate.reason] }, { status: 429 });
+    return NextResponse.json({ error: rateMessage(rate.reason) }, { status: 429 });
   }
 
   try {

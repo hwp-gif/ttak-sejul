@@ -121,7 +121,14 @@ export async function recentMeetings(clientId: string, limit = 5): Promise<Meeti
 
 // ───── 사용 횟수 제한 (팀 OpenRouter 키 보호) ─────
 // 서버가 여러 대로 나뉘어 떠도 정확히 세도록 DB에 기록한다. IP는 그대로 저장하지 않고 해시로만 저장.
-export const LIMITS = { perMinute: 5, perDay: 30, sitePerDay: 300 } as const;
+const NORMAL_LIMITS = { perMinute: 5, perDay: 30, sitePerDay: 300 };
+// 전시(11/28) 기간: 전시장 와이파이에서는 관람객이 같은 IP로 보이므로 한 사람 기준을 넉넉하게 푼다.
+// 11/30(일) 0시(한국 시간)부터 자동으로 평소 기준으로 돌아간다. 무료 모델이라 팀 크레딧은 거의 쓰지 않는다.
+const EVENT_LIMITS = { perMinute: 20, perDay: 200, sitePerDay: 500 };
+const EVENT_ENDS_AT = Date.parse("2026-11-30T00:00:00+09:00");
+export function currentLimits(now = Date.now()) {
+  return now < EVENT_ENDS_AT ? EVENT_LIMITS : NORMAL_LIMITS;
+}
 export type RateResult = { ok: true } | { ok: false; reason: "minute" | "day" | "site" };
 
 let hitsReady: Promise<void> | null = null;
@@ -156,9 +163,10 @@ export async function checkRateLimit(key: string): Promise<RateResult> {
     [key],
   );
   const { minute, day, site } = rows[0];
-  if (minute >= LIMITS.perMinute) return { ok: false, reason: "minute" };
-  if (day >= LIMITS.perDay) return { ok: false, reason: "day" };
-  if (site >= LIMITS.sitePerDay) return { ok: false, reason: "site" };
+  const limits = currentLimits();
+  if (minute >= limits.perMinute) return { ok: false, reason: "minute" };
+  if (day >= limits.perDay) return { ok: false, reason: "day" };
+  if (site >= limits.sitePerDay) return { ok: false, reason: "site" };
   await db.query("INSERT INTO api_hits (key) VALUES ($1)", [key]);
   // 가끔 이틀 지난 기록을 지운다 (표가 계속 커지지 않게)
   if (Math.random() < 0.05) db.query("DELETE FROM api_hits WHERE at < now() - interval '2 days'").catch(() => {});
