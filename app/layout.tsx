@@ -21,6 +21,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  // 다크 모드를 사이트가 직접 지원한다고 알림 → 브라우저(삼성 인터넷 등)가 색을 강제로 뒤집지 않게
+  colorScheme: "light dark",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#F6F1E7" },
     { media: "(prefers-color-scheme: dark)", color: "#1F1B17" },
