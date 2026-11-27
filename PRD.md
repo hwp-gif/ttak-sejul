@@ -152,7 +152,7 @@
 ## 10. 완료 기준
 - [x] Netlify 주소(https)가 **스마트폰**에서 열린다 (2026-11-28 본인 휴대폰으로 예시 정리까지 확인. 다크 모드에서 킴대리 선이 안 보이던 것을 고침)
 - [x] T1~T12를 모두 해 보고 기대 결과와 비교했다 → [docs/test-results-2026-11-23.md](docs/test-results-2026-11-23.md)
-- [ ] 정리한 기록이 Supabase Table Editor에 보인다
+- [x] 정리한 기록이 Supabase Table Editor에 보인다 (2026-11-28 휴대폰으로 정리한 기록이 meeting_logs에 보임)
 - [x] GitHub에 `.env`가 없다, RLS가 켜져 있다 (테이블을 만들 때 코드가 RLS를 켬: `lib/db.ts`)
 - [x] Netlify에서 공개(Make public)로 전환했다 (로그인 없이 접속 200 확인, 2026-11-28)
 - [x] README에 설치 가이드 (실행 환경 · 설치 순서 · 환경변수 · 테스트 3개) + `.env.example` (8주차 2회차 공통 양식)
