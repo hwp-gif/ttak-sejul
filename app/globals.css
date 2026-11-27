@@ -340,6 +340,10 @@ button.fill { padding: 3px 10px; min-height: 30px; font-size: 13px; color: var(-
 
 /* ───── ☕ 킴대리 ───── */
 .kim { flex: none; overflow: visible; }
+/* 다크 모드: 킴대리의 먹선(#2b2620)이 어두운 바탕(#1f1b17)에 묻혀 팔·다리·손잡이가 안 보임 → 크림색 테두리 빛을 둘러 윤곽을 살린다 */
+@media (prefers-color-scheme: dark) {
+  .kim { filter: drop-shadow(0 0 0.8px rgba(241, 233, 220, .95)) drop-shadow(0 0 2px rgba(241, 233, 220, .35)); }
+}
 .kim-body { transform-origin: 60px 130px; animation: kim-bob 1.8s ease-in-out infinite; }
 .kim-steam { animation: kim-steam 2.4s ease-in-out infinite; transform-origin: 60px 40px; }
 .kim-wave-arm { transform-origin: 90px 86px; animation: kim-wave 1s ease-in-out infinite; }
