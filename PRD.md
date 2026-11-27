@@ -153,9 +153,9 @@
 - [ ] Netlify 주소(https)가 **스마트폰**에서 열린다
 - [x] T1~T12를 모두 해 보고 기대 결과와 비교했다 → [docs/test-results-2026-11-23.md](docs/test-results-2026-11-23.md)
 - [ ] 정리한 기록이 Supabase Table Editor에 보인다
-- [ ] GitHub에 `.env`가 없다, RLS가 켜져 있다
-- [ ] Netlify에서 공개(Make public)로 전환했다
-- [ ] README에 설치 가이드 (실행 환경 · 설치 순서 · 환경변수 · 테스트 3개) + `.env.example` (8주차 2회차 공통 양식)
+- [x] GitHub에 `.env`가 없다, RLS가 켜져 있다 (테이블을 만들 때 코드가 RLS를 켬: `lib/db.ts`)
+- [x] Netlify에서 공개(Make public)로 전환했다 (로그인 없이 접속 200 확인, 2026-11-28)
+- [x] README에 설치 가이드 (실행 환경 · 설치 순서 · 환경변수 · 테스트 3개) + `.env.example` (8주차 2회차 공통 양식)
 - [ ] 2~3명에게 써 보게 하고 걸린 시간 · 성공 여부를 기록했다 (9주차 현장 검증 → 포스터·발표 근거) → 기록지 [docs/user-test-2026-11-28.md](docs/user-test-2026-11-28.md)
 
 ## 11. 만드는 순서 (바이브코딩)
