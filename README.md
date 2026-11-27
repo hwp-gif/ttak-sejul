@@ -29,27 +29,38 @@
 ## 테스트 결과
 PRD 테스트 12종을 실제 배포 사이트에서 실행: **12/12 통과 · 근거 ✓ 22/23 (96%) · 지어낸 담당자 0건 · 정리 속도 중앙값 3.4초** → [docs/test-results-2026-11-23.md](docs/test-results-2026-11-23.md)
 
-## 실행 환경
-- Node.js 22 이상, npm
-- Next.js 16 (App Router) · React 19 · TypeScript
-- AI: OpenRouter 무료 모델
+## 설치 가이드
 
-## 설치 · 실행
+### 1. 실행 환경
+- OS: Linux · macOS · Windows (개발은 Linux 서버, 배포는 Netlify)
+- Node.js 22 이상 (개발 시 v22.23), npm
+- PostgreSQL: Supabase (17 버전)
+- Next.js 16 (App Router) · React 19 · TypeScript
+- AI: OpenRouter 무료 모델 (API 키 1개)
+
+### 2. 설치 · 배포 순서
 ```bash
 git clone https://github.com/hwp-gif/ttak-sejul.git
 cd ttak-sejul
-npm install
-cp .env.example .env   # 값을 채운다
-PORT=3074 npm run dev     # http://localhost:3074
+npm ci
+cp .env.example .env   # 값을 채운다 (아래 3번)
+npm run build
+npm run start          # http://localhost:3000 (PORT=3074 npm run start 처럼 포트 지정 가능)
 ```
+- 개발할 때는 `npm run build` · `npm run start` 대신 `npm run dev`
+- **DB 구조**: 따로 복원할 것이 없다. 처음 저장할 때 테이블 `meeting_logs`(정리 기록) · `api_hits`(사용 횟수)가 자동으로 만들어지고 RLS가 켜진다 (`lib/db.ts`)
+- **배포 (Netlify)**: GitHub 저장소를 Netlify 사이트에 연결하면 `main`에 push할 때마다 자동 배포된다. 환경 변수는 Netlify의 Site configuration → Environment variables에 `.env.example`과 같은 이름으로 넣는다
+- **DB (Supabase)**: Supabase 프로젝트의 [Connect]에서 PostgreSQL 연결 주소(pooler)를 복사해 `DATABASE_URL`에 넣는다. DB가 없거나 연결이 끊겨도 정리 기능은 되고, 기록 저장만 건너뛴다
 
-## 환경 변수 (`.env`, GitHub에 올리지 않음)
+### 3. 환경 변수 (`.env`, GitHub에 올리지 않음)
 | 이름 | 설명 |
 |---|---|
 | `OPENROUTER_API_KEY` | OpenRouter API 키 (AI 정리) |
-| `DATABASE_URL` | Supabase PostgreSQL 접속 주소 (기록 저장. 테이블 `meeting_logs`는 처음 저장할 때 자동 생성) |
+| `DATABASE_URL` | Supabase PostgreSQL 접속 주소 (기록 저장 · 사용 횟수 제한) |
 
-## 테스트 예시
+### 4. 동작 확인
+접속 주소: https://ttak-sejul.netlify.app (내 컴퓨터에서는 http://localhost:3000)
+
 1. [예시 회의로 둘러보기] → [회의 끝 · 딱세줄로 정리] → 결정 · 할 일에 ✓ 원문 확인이 붙는다
 2. 담당자를 적지 않은 할 일 → "담당: 미정 · 정하기 ✎"가 뜨고, 눌러서 이름을 고르면 반영된다
 3. 빈 메모로 정리 → "메모를 입력해 주세요." 안내가 뜨고 AI를 부르지 않는다
